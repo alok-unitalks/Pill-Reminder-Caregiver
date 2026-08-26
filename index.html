@@ -36,7 +36,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('firebase-messaging-sw.js')
+        navigator.serviceWorker.register('/Pill-Reminder-Caregiver/firebase-messaging-sw.js')
           .then((reg) => console.log('Service Worker Registered for FCM: ', reg.scope))
           .catch((err) => console.log('Service Worker Registration failed: ', err));
       });
