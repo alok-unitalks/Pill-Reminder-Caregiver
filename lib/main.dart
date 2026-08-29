@@ -10,13 +10,21 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
   
-  final prefs = await SharedPreferences.getInstance();
-  final savedPatientUid = prefs.getString('caregiver_patient_uid');
-  final bool isLoggedIn = FirebaseAuth.instance.currentUser != null && savedPatientUid != null;
+  String? savedPatientUid;
+  bool isLoggedIn = false;
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    
+    final prefs = await SharedPreferences.getInstance();
+    savedPatientUid = prefs.getString('caregiver_patient_uid');
+    isLoggedIn = FirebaseAuth.instance.currentUser != null && savedPatientUid != null;
+  } catch (e) {
+    debugPrint("Failed to initialize session on boot: $e");
+  }
   
   runApp(CaregiverPwaApp(initialPatientUid: isLoggedIn ? savedPatientUid : null));
 }
