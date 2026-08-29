@@ -95,7 +95,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
       final ConfirmationResult result = await FirebaseAuth.instance.signInWithPhoneNumber(
         '+91$rawPhone',
         RecaptchaVerifier(
-          auth: FirebaseAuth.instance,
+          auth: FirebaseAuth.instance.delegate,
         ),
       );
 
