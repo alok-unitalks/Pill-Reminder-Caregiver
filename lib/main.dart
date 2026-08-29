@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -12,11 +13,17 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const CaregiverPwaApp());
+  
+  final prefs = await SharedPreferences.getInstance();
+  final savedPatientUid = prefs.getString('caregiver_patient_uid');
+  final bool isLoggedIn = FirebaseAuth.instance.currentUser != null && savedPatientUid != null;
+  
+  runApp(CaregiverPwaApp(initialPatientUid: isLoggedIn ? savedPatientUid : null));
 }
 
 class CaregiverPwaApp extends StatelessWidget {
-  const CaregiverPwaApp({Key? key}) : super(key: key);
+  final String? initialPatientUid;
+  const CaregiverPwaApp({Key? key, this.initialPatientUid}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +39,9 @@ class CaregiverPwaApp extends StatelessWidget {
           secondary: Color(0xFF10B981),
         ),
       ),
-      home: const CaregiverLoginScreen(),
+      home: initialPatientUid != null 
+          ? CaregiverDashboardScreen(patientId: initialPatientUid!)
+          : const CaregiverLoginScreen(),
     );
   }
 }
@@ -166,6 +175,10 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
           } catch (e) {
             debugPrint("Notification permission bypassed: $e");
           }
+
+          // Save session state locally
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('caregiver_patient_uid', _patientUid!);
 
           // Navigate to dashboard
           Navigator.pushReplacement(
@@ -352,7 +365,10 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('caregiver_patient_uid');
+              await FirebaseAuth.instance.signOut();
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const CaregiverLoginScreen()),
