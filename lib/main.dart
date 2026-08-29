@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'firebase_options.dart';
@@ -43,14 +44,19 @@ class CaregiverLoginScreen extends StatefulWidget {
 }
 
 class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
-  final TextEditingController _patientIdController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
   bool _isLoading = false;
+  bool _otpSent = false;
+  String? _patientUid;
+  ConfirmationResult? _confirmationResult;
 
-  void _login() async {
-    final patientId = _patientIdController.text.trim();
-    if (patientId.isEmpty) {
+  // Search caregiverPhone in Firestore, send SMS OTP
+  void _requestOtp() async {
+    final enteredPhone = _phoneController.text.trim();
+    if (enteredPhone.isEmpty || enteredPhone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid Patient UID')),
+        const SnackBar(content: Text('Please enter a valid 10-digit phone number')),
       );
       return;
     }
@@ -58,51 +64,123 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Request FCM push permission for Web
-      final messaging = FirebaseMessaging.instance;
-      NotificationSettings settings = await messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        String? token = await messaging.getToken(
-          vapidKey: 'BExfV5W-5gA64hV... (Insert actual Firebase VAPID key here if configured)',
-        );
-        if (token != null) {
-          // Register caregiver FCM token in Firestore under patient's tokens
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(patientId)
-              .collection('caregiverTokens')
-              .doc(token)
-              .set({
-                'token': token,
-                'createdAt': FieldValue.serverTimestamp(),
-              });
-        }
+      // Extrapolate raw 10 digits
+      String rawPhone = enteredPhone.replaceAll(RegExp(r'\D'), '');
+      if (rawPhone.length > 10) {
+        rawPhone = rawPhone.substring(rawPhone.length - 10);
       }
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CaregiverDashboardScreen(patientId: patientId),
+      // Query database: find user where caregiverPhone matches variations of the number
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .where('caregiverPhone', whereIn: [rawPhone, '+91$rawPhone', '91$rawPhone'])
+          .get();
+
+      if (query.docs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error: This phone number is not registered as a caregiver.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Found patient link!
+      _patientUid = query.docs.first.id;
+      final String patientName = query.docs.first.data()['name'] ?? 'Patient';
+
+      // Send Firebase OTP using reCAPTCHA
+      final ConfirmationResult result = await FirebaseAuth.instance.signInWithPhoneNumber(
+        '+91$rawPhone',
+        RecaptchaVerifier(
+          container: 'recaptcha-container',
+          size: RecaptchaVerifierSize.invisible,
+        ),
+      );
+
+      setState(() {
+        _confirmationResult = result;
+        _otpSent = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Verification code sent for patient $patientName'),
+          backgroundColor: const Color(0xFF1E40AF),
         ),
       );
     } catch (e) {
-      debugPrint('FCM Service worker setup bypassed (Using real-time Firestore database backup): $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🔄 Connected: Real-time database sync active.'),
-          backgroundColor: Color(0xFF10B981), // Emerald green
+        SnackBar(
+          content: Text('Error sending SMS OTP: $e'),
+          backgroundColor: Colors.redAccent,
         ),
       );
-      // Fallback: Proceed to dashboard
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CaregiverDashboardScreen(patientId: patientId),
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Verify OTP and transition to Dashboard
+  void _verifyOtp() async {
+    final enteredOtp = _otpController.text.trim();
+    if (enteredOtp.isEmpty || enteredOtp.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the 6-digit verification code')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      if (_confirmationResult != null && _patientUid != null) {
+        // Authenticate credentials
+        UserCredential userCredential = await _confirmationResult!.confirm(enteredOtp);
+        
+        if (userCredential.user != null) {
+          // Subscribe to notifications (fail-safe fallback configured)
+          try {
+            final messaging = FirebaseMessaging.instance;
+            NotificationSettings settings = await messaging.requestPermission(
+              alert: true,
+              sound: true,
+            );
+
+            if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+              String? token = await messaging.getToken();
+              if (token != null) {
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(_patientUid)
+                    .collection('caregiverTokens')
+                    .doc(token)
+                    .set({
+                      'token': token,
+                      'createdAt': FieldValue.serverTimestamp(),
+                    });
+              }
+            }
+          } catch (e) {
+            debugPrint("Notification permission bypassed: $e");
+          }
+
+          // Navigate to dashboard
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CaregiverDashboardScreen(patientId: _patientUid!),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid code: $e'),
+          backgroundColor: Colors.redAccent,
         ),
       );
     } finally {
@@ -113,64 +191,107 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Container(
-          width: 450,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 15,
-                spreadRadius: 2,
-              )
-            ],
+      body: Stack(
+        children: [
+          // reCAPTCHA target element
+          Positioned(
+            left: -9999,
+            top: -9999,
+            child: Container(id: 'recaptcha-container'),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.healing, size: 64, color: Color(0xFF1E40AF)),
-              const SizedBox(height: 16),
-              const Text(
-                'Caregiver PWA Dashboard',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          Center(
+            child: Container(
+              width: 450,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                  )
+                ],
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Enter Patient UID to monitor adherence & receive missed dose push notifications.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: _patientIdController,
-                decoration: const InputDecoration(
-                  labelText: 'Patient UID',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
-                ),
-              ),
-              const SizedBox(height: 24),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _login,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFF1E40AF),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(Icons.healing, size: 64, color: Color(0xFF1E40AF)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Caregiver Verification Portal',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _otpSent
+                        ? 'Enter the 6-digit code sent to your registered phone number.'
+                        : 'Enter your registered phone number to verify identity and access the patient dashboard.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                  const SizedBox(height: 24),
+                  if (!_otpSent) ...[
+                    TextField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone Number',
+                        hintText: '9876543210',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.phone),
+                        prefixText: '+91 ',
                       ),
-                      child: const Text('Access Dashboard', style: TextStyle(color: Colors.white)),
                     ),
-            ],
+                  ] else ...[
+                    TextField(
+                      controller: _otpController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Verification Code',
+                        hintText: '123456',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.security),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ElevatedButton(
+                          onPressed: _otpSent ? _verifyOtp : _requestOtp,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: const Color(0xFF1E40AF),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            _otpSent ? 'Verify Code' : 'Send Verification Code',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                  if (_otpSent) ...[
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _otpSent = false;
+                          _otpController.clear();
+                        });
+                      },
+                      child: const Text('Back to phone entry', style: TextStyle(color: Color(0xFF1E40AF))),
+                    )
+                  ]
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
