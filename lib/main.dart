@@ -95,8 +95,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
       final ConfirmationResult result = await FirebaseAuth.instance.signInWithPhoneNumber(
         '+91$rawPhone',
         RecaptchaVerifier(
-          container: 'recaptcha-container',
-          size: RecaptchaVerifierSize.invisible,
+          auth: FirebaseAuth.instance,
         ),
       );
 
@@ -193,12 +192,6 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // reCAPTCHA target element
-          Positioned(
-            left: -9999,
-            top: -9999,
-            child: Container(id: 'recaptcha-container'),
-          ),
           Center(
             child: Container(
               width: 450,
