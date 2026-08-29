@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'firebase_options.dart';
@@ -95,7 +96,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
       final ConfirmationResult result = await FirebaseAuth.instance.signInWithPhoneNumber(
         '+91$rawPhone',
         RecaptchaVerifier(
-          auth: FirebaseAuth.instance.delegate,
+          auth: FirebaseAuthPlatform.instance,
         ),
       );
 
