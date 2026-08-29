@@ -185,8 +185,12 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
           }
 
           // Save session state locally
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('caregiver_patient_uid', _patientUid!);
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('caregiver_patient_uid', _patientUid!);
+          } catch (prefError) {
+            debugPrint("SharedPreferences write failed, session won't persist: $prefError");
+          }
 
           // Navigate to dashboard
           Navigator.pushReplacement(
