@@ -10,28 +10,14 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  String? savedPatientUid;
-  bool isLoggedIn = false;
-
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    
-    final prefs = await SharedPreferences.getInstance();
-    savedPatientUid = prefs.getString('caregiver_patient_uid');
-    isLoggedIn = FirebaseAuth.instance.currentUser != null && savedPatientUid != null;
-  } catch (e) {
-    debugPrint("Failed to initialize session on boot: $e");
-  }
-  
-  runApp(CaregiverPwaApp(initialPatientUid: isLoggedIn ? savedPatientUid : null));
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const CaregiverPwaApp());
 }
 
 class CaregiverPwaApp extends StatelessWidget {
-  final String? initialPatientUid;
-  const CaregiverPwaApp({Key? key, this.initialPatientUid}) : super(key: key);
+  const CaregiverPwaApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -47,9 +33,56 @@ class CaregiverPwaApp extends StatelessWidget {
           secondary: Color(0xFF10B981),
         ),
       ),
-      home: initialPatientUid != null 
-          ? CaregiverDashboardScreen(patientId: initialPatientUid!)
-          : const CaregiverLoginScreen(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        
+        final user = snapshot.data;
+        if (user == null) {
+          return const CaregiverLoginScreen();
+        }
+        
+        return FutureBuilder<SharedPreferences>(
+          future: SharedPreferences.getInstance(),
+          builder: (context, prefSnapshot) {
+            if (prefSnapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            
+            if (prefSnapshot.hasError || !prefSnapshot.hasData) {
+              FirebaseAuth.instance.signOut();
+              return const CaregiverLoginScreen();
+            }
+            
+            final prefs = prefSnapshot.data!;
+            final savedPatientUid = prefs.getString('caregiver_patient_uid');
+            
+            if (savedPatientUid == null) {
+              FirebaseAuth.instance.signOut();
+              return const CaregiverLoginScreen();
+            }
+            
+            return CaregiverDashboardScreen(patientId: savedPatientUid);
+          },
+        );
+      },
     );
   }
 }
