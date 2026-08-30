@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+10";
+const String appVersion = "Beta v1.1.2+11";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -478,7 +478,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
           // Left Sidebar Metrics / Graph
           Expanded(
             flex: 2,
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -524,47 +524,45 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                   ),
                   const SizedBox(height: 24),
                   // Progress Chart
-                  Expanded(
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Text(
-                              'Adherence Analytics Chart',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              height: 180,
-                              child: PieChart(
-                                PieChartData(
-                                  sectionsSpace: 4,
-                                  centerSpaceRadius: 40,
-                                  sections: [
-                                    PieChartSectionData(
-                                      color: Colors.green,
-                                      value: _takenCount.toDouble() == 0 ? 1 : _takenCount.toDouble(),
-                                      title: 'Taken',
-                                      radius: 60,
-                                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    ),
-                                    PieChartSectionData(
-                                      color: Colors.red,
-                                      value: _missedCount.toDouble() == 0 ? 1 : _missedCount.toDouble(),
-                                      title: 'Missed',
-                                      radius: 60,
-                                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Adherence Analytics Chart',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            height: 180,
+                            child: PieChart(
+                              PieChartData(
+                                sectionsSpace: 4,
+                                centerSpaceRadius: 40,
+                                sections: [
+                                  PieChartSectionData(
+                                    color: Colors.green,
+                                    value: _takenCount.toDouble() == 0 ? 1 : _takenCount.toDouble(),
+                                    title: 'Taken',
+                                    radius: 60,
+                                    titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                  PieChartSectionData(
+                                    color: Colors.red,
+                                    value: _missedCount.toDouble() == 0 ? 1 : _missedCount.toDouble(),
+                                    title: 'Missed',
+                                    radius: 60,
+                                    titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
