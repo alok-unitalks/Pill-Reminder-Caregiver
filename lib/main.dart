@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+9";
+const String appVersion = "Beta v1.1.2+10";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -538,7 +538,8 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 24),
-                            Expanded(
+                            SizedBox(
+                              height: 180,
                               child: PieChart(
                                 PieChartData(
                                   sectionsSpace: 4,
