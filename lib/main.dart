@@ -9,7 +9,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+4";
+const String appVersion = "Beta v1.1.2+5";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
