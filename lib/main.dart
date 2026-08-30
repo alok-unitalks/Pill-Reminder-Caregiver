@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+11";
+const String appVersion = "Beta v1.1.2+12";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -380,6 +380,8 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
   int _takenCount = 0;
   int _missedCount = 0;
   String _activeTab = "active-schedule"; // "active-schedule", "adherence-history", "caregiver-alerts"
+  final Set<String> _activeReminderIds = {};
+  final Set<String> _activeReminderNames = {};
 
   @override
   void initState() {
@@ -397,8 +399,17 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
         .listen((snapshot) {
       int taken = 0;
       int missed = 0;
+      final Set<String> activeIds = {};
+      final Set<String> activeNames = {};
+      
       for (var doc in snapshot.docs) {
         final data = doc.data();
+        final id = doc.id;
+        final brandName = (data['brandName'] as String? ?? '').trim().toLowerCase();
+        activeIds.add(id);
+        if (brandName.isNotEmpty) {
+          activeNames.add(brandName);
+        }
         if (data['taken'] == true) taken++;
         if (data['missed'] == true) missed++;
       }
@@ -406,6 +417,10 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
         setState(() {
           _takenCount = taken;
           _missedCount = missed;
+          _activeReminderIds.clear();
+          _activeReminderIds.addAll(activeIds);
+          _activeReminderNames.clear();
+          _activeReminderNames.addAll(activeNames);
         });
       }
     });
@@ -773,9 +788,21 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
 
     // Parse brand name from log string e.g. "rem-123 | Paracetamol" -> "Paracetamol"
     String displayMedName = rawMedName;
+    String reminderId = "";
     if (rawMedName.contains('|')) {
       final parts = rawMedName.split('|');
+      reminderId = parts[0].trim();
       displayMedName = parts.sublist(1).join('|').trim();
+    }
+
+    final String cleanName = displayMedName.trim().toLowerCase();
+    
+    // Filter: Only display historical logs of reminders that are currently active
+    final bool isActive = _activeReminderIds.contains(reminderId) || 
+                         _activeReminderNames.contains(cleanName);
+                         
+    if (!isActive) {
+      return const SizedBox.shrink();
     }
 
     return Card(
