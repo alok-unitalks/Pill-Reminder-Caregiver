@@ -290,6 +290,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
                     TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      onSubmitted: (_) => _requestOtp(),
                       decoration: const InputDecoration(
                         labelText: 'Phone Number',
                         border: OutlineInputBorder(),
@@ -301,6 +302,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
                     TextField(
                       controller: _otpController,
                       keyboardType: TextInputType.number,
+                      onSubmitted: (_) => _verifyOtp(),
                       decoration: const InputDecoration(
                         labelText: 'Verification Code',
                         hintText: '123456',
