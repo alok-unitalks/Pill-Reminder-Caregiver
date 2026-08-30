@@ -292,7 +292,6 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
                         labelText: 'Phone Number',
-                        hintText: '9876543210',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.phone),
                         prefixText: '+91 ',
