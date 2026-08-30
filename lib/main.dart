@@ -8,6 +8,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 
+const String appVersion = "Beta v1.1.2+4";
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -339,7 +341,13 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
                       },
                       child: const Text('Back to phone entry', style: TextStyle(color: Color(0xFF1E40AF))),
                     )
-                  ]
+                  ],
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Version: $appVersion',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 11),
+                  ),
                 ],
               ),
             ),
@@ -516,7 +524,14 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                         ),
                       ),
                     ),
-                  )
+                  ),
+                  const SizedBox(height: 16),
+                  const Center(
+                    child: Text(
+                      'Version: $appVersion',
+                      style: TextStyle(color: Colors.grey, fontSize: 11),
+                    ),
+                  ),
                 ],
               ),
             ),
