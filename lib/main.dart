@@ -9,7 +9,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+5";
+const String appVersion = "Beta v1.1.2+6";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -153,6 +153,14 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
       // Found patient link!
       _patientUid = query.docs.first.id;
       final String patientName = query.docs.first.data()['name'] ?? 'Patient';
+
+      // Save resolved patient UID early to prevent auth gate race conditions
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('caregiver_patient_uid', _patientUid!);
+      } catch (prefError) {
+        debugPrint("Early SharedPreferences write failed: $prefError");
+      }
 
       // Send Firebase OTP using reCAPTCHA
       final ConfirmationResult result = await FirebaseAuth.instance.signInWithPhoneNumber(
