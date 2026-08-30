@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+7";
+const String appVersion = "Beta v1.1.2+8";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -379,6 +379,7 @@ class CaregiverDashboardScreen extends StatefulWidget {
 class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
   int _takenCount = 0;
   int _missedCount = 0;
+  String _activeTab = "active-schedule"; // "active-schedule", "adherence-history", "caregiver-alerts"
 
   @override
   void initState() {
@@ -416,6 +417,40 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     final total = _takenCount + _missedCount;
     if (total == 0) return 0;
     return (_takenCount / total) * 100;
+  }
+
+  Widget _buildTabButton(String tabId, String label, IconData icon) {
+    final isActive = _activeTab == tabId;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _activeTab = tabId),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: isActive
+                ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: isActive ? const Color(0xFF1E40AF) : Colors.grey[600]),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isActive ? Colors.black87 : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -547,7 +582,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
           ),
           // Vertical divider
           const VerticalDivider(width: 1),
-          // Right Sidebar Alerts list
+          // Right Sidebar Adherence Hub
           Expanded(
             flex: 3,
             child: Padding(
@@ -555,65 +590,26 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Real-Time Caregiver Alerts Log',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                      stream: FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(widget.patientId)
-                          .collection('caregiverAlerts')
-                          .orderBy('timestamp', descending: true)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
-
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return const Center(
-                            child: Text('No medication alert logs found.'),
-                          );
-                        }
-
-                        final docs = snapshot.data!.docs;
-
-                        return ListView.builder(
-                          itemCount: docs.length,
-                          itemBuilder: (context, index) {
-                            final alert = docs[index].data();
-                            final time = (alert['timestamp'] as Timestamp?)?.toDate();
-                            final formattedTime = time != null
-                                ? "${time.day}/${time.month} ${time.hour}:${time.minute.toString().padLeft(2, '0')}"
-                                : "Just now";
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              color: const Color(0xFFFEF2F2), // Light red alert background
-                              child: ListTile(
-                                leading: const Icon(Icons.warning, color: Colors.red),
-                                title: Text(
-                                  'Missed ${alert['medicineName']}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
-                                ),
-                                subtitle: Text(
-                                  'Patient: ${alert['patientName']} | Scheduled: ${alert['doseTiming']}',
-                                  style: TextStyle(color: Colors.grey[700]),
-                                ),
-                                trailing: Text(
-                                  formattedTime,
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
+                  // Tab switcher (similar to mobile app layout switcher)
+                  Container(
+                    padding: const EdgeInsets.all(4.0),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    child: Row(
+                      children: [
+                        _buildTabButton("active-schedule", "Active Schedule", Icons.assignment_outlined),
+                        _buildTabButton("adherence-history", "Adherence Log", Icons.calendar_today_outlined),
+                        _buildTabButton("caregiver-alerts", "Caregiver Alerts", Icons.warning_amber_outlined),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Dynamic Panel Rendering
+                  Expanded(
+                    child: _buildPanelContent(),
                   )
                 ],
               ),
@@ -622,5 +618,281 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildPanelContent() {
+    if (_activeTab == "active-schedule") {
+      return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.patientId)
+            .collection('reminders')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(
+              child: Text('No active medication schedules found for this patient.'),
+            );
+          }
+
+          final docs = snapshot.data!.docs;
+
+          return ListView.builder(
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final rem = docs[index].data();
+              return Card(
+                elevation: 1,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: Colors.grey.withOpacity(0.15)),
+                ),
+                child: ListTile(
+                  leading: PillPreviewWidget(
+                    shape: rem['shape'] ?? 'round',
+                    hexColor: rem['color'] ?? '#1E40AF',
+                    size: 20,
+                  ),
+                  title: Text(
+                    rem['brandName'] ?? 'Medication',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    "Instruction: ${rem['instructions'] ?? 'As directed'} • ${rem['time'] ?? '08:00 AM'} • Dosage: ${rem['dose'] ?? '1 Unit'}",
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12, height: 1.4),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    } else if (_activeTab == "adherence-history") {
+      return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.patientId)
+            .collection('adherenceHistory')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(
+              child: Text('No adherence log history found.'),
+            );
+          }
+
+          // Sort documents by date string descending
+          final docs = snapshot.data!.docs.toList()..sort((a, b) => b.id.compareTo(a.id));
+
+          return ListView.builder(
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final dateDoc = docs[index];
+              final dateStr = dateDoc.id; // e.g. "2026-08-30"
+              final data = dateDoc.data();
+              
+              final takenList = List<String>.from(data['taken'] ?? []);
+              final missedList = List<String>.from(data['missed'] ?? []);
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ...takenList.map((medName) => _buildHistoryItem(medName, true, dateStr)),
+                  ...missedList.map((medName) => _buildHistoryItem(medName, false, dateStr)),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } else {
+      // Caregiver Alerts Tab
+      return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.patientId)
+            .collection('caregiverAlerts')
+            .orderBy('timestamp', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(
+              child: Text('No alerts triggered.'),
+            );
+          }
+
+          final docs = snapshot.data!.docs;
+
+          return ListView.builder(
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final alert = docs[index].data();
+              final time = (alert['timestamp'] as Timestamp?)?.toDate();
+              final formattedTime = time != null
+                  ? "${time.day}/${time.month} ${time.hour}:${time.minute.toString().padLeft(2, '0')}"
+                  : "Just now";
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                color: const Color(0xFFFEF2F2),
+                child: ListTile(
+                  leading: const Icon(Icons.warning, color: Colors.red),
+                  title: Text(
+                    'Missed ${alert['medicineName']}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                  ),
+                  subtitle: Text(
+                    'Patient: ${alert['patientName']} | Scheduled: ${alert['doseTiming']}',
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                  trailing: Text(
+                    formattedTime,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+  }
+
+  Widget _buildHistoryItem(String rawMedName, bool taken, String dateStr) {
+    final statusColor = taken ? const Color(0xFF10B981) : Colors.redAccent;
+    final statusIcon = taken ? Icons.check_circle_outline : Icons.cancel_outlined;
+
+    // Parse brand name from log string e.g. "rem-123 | Paracetamol" -> "Paracetamol"
+    String displayMedName = rawMedName;
+    if (rawMedName.contains('|')) {
+      final parts = rawMedName.split('|');
+      displayMedName = parts.sublist(1).join('|').trim();
+    }
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey.withOpacity(0.15)),
+      ),
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        leading: Icon(statusIcon, color: statusColor, size: 24),
+        title: Text(
+          displayMedName,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+        subtitle: Text(
+          "Logged: $dateStr",
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            taken ? 'Taken' : 'Missed',
+            style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PillPreviewWidget extends StatelessWidget {
+  final String shape;
+  final String hexColor;
+  final double size;
+
+  const PillPreviewWidget({
+    Key? key,
+    required this.shape,
+    required this.hexColor,
+    this.size = 24.0,
+  }) : super(key: key);
+
+  Color _parseColor(String hex) {
+    try {
+      final buffer = StringBuffer();
+      if (hex.length == 6 || hex.length == 7) buffer.write('ff');
+      buffer.write(hex.replaceFirst('#', ''));
+      return Color(int.parse(buffer.toString(), radix: 16));
+    } catch (_) {
+      return Colors.blue;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _parseColor(hexColor);
+    
+    switch (shape.toLowerCase()) {
+      case 'oval':
+        return Container(
+          width: size * 1.5,
+          height: size,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.all(Radius.elliptical(size * 1.5, size)),
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+          ),
+        );
+      case 'capsule':
+        return Container(
+          width: size,
+          height: size * 1.5,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(size),
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+          ),
+        );
+      case 'capsule-split':
+        return Container(
+          width: size,
+          height: size * 1.5,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(size),
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+          ),
+          child: Center(
+            child: Container(
+              width: size,
+              height: 1.5,
+              color: Colors.white.withOpacity(0.6),
+            ),
+          ),
+        );
+      case 'round':
+      default:
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+          ),
+        );
+    }
   }
 }
