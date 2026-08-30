@@ -6,10 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:html' as html;
+import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+6";
+const String appVersion = "Beta v1.1.2+7";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,31 +61,15 @@ class AuthGate extends StatelessWidget {
           return const CaregiverLoginScreen();
         }
         
-        return FutureBuilder<SharedPreferences>(
-          future: SharedPreferences.getInstance(),
-          builder: (context, prefSnapshot) {
-            if (prefSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-            
-            if (prefSnapshot.hasError || !prefSnapshot.hasData) {
-              FirebaseAuth.instance.signOut();
-              return const CaregiverLoginScreen();
-            }
-            
-            final prefs = prefSnapshot.data!;
-            final savedPatientUid = prefs.getString('caregiver_patient_uid');
-            
-            if (savedPatientUid == null) {
-              FirebaseAuth.instance.signOut();
-              return const CaregiverLoginScreen();
-            }
-            
-            return CaregiverDashboardScreen(patientId: savedPatientUid);
-          },
-        );
+        // Synchronous retrieval via window.localStorage (bypasses shared_preferences completely)
+        final String? savedPatientUid = html.window.localStorage['caregiver_patient_uid'];
+        
+        if (savedPatientUid == null) {
+          FirebaseAuth.instance.signOut();
+          return const CaregiverLoginScreen();
+        }
+        
+        return CaregiverDashboardScreen(patientId: savedPatientUid);
       },
     );
   }
@@ -155,12 +140,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
       final String patientName = query.docs.first.data()['name'] ?? 'Patient';
 
       // Save resolved patient UID early to prevent auth gate race conditions
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('caregiver_patient_uid', _patientUid!);
-      } catch (prefError) {
-        debugPrint("Early SharedPreferences write failed: $prefError");
-      }
+      html.window.localStorage['caregiver_patient_uid'] = _patientUid!;
 
       // Send Firebase OTP using reCAPTCHA
       final ConfirmationResult result = await FirebaseAuth.instance.signInWithPhoneNumber(
@@ -238,12 +218,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
           }
 
           // Save session state locally
-          try {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('caregiver_patient_uid', _patientUid!);
-          } catch (prefError) {
-            debugPrint("SharedPreferences write failed, session won't persist: $prefError");
-          }
+          html.window.localStorage['caregiver_patient_uid'] = _patientUid!;
 
           // Navigate to dashboard
           Navigator.pushReplacement(
@@ -455,8 +430,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('caregiver_patient_uid');
+              html.window.localStorage.remove('caregiver_patient_uid');
               await FirebaseAuth.instance.signOut();
               Navigator.pushReplacement(
                 context,
