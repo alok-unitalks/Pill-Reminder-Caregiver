@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+12";
+const String appVersion = "Beta v1.1.2+13";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -382,6 +382,11 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
   String _activeTab = "active-schedule"; // "active-schedule", "adherence-history", "caregiver-alerts"
   final Set<String> _activeReminderIds = {};
   final Set<String> _activeReminderNames = {};
+  final Map<String, Map<String, dynamic>> _activeRemindersMap = {};
+  
+  // Date filters defaulting to 14 days to match the mobile app exactly
+  DateTime _startDate = DateTime.now().subtract(const Duration(days: 14));
+  DateTime _endDate = DateTime.now();
 
   @override
   void initState() {
@@ -401,10 +406,12 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
       int missed = 0;
       final Set<String> activeIds = {};
       final Set<String> activeNames = {};
+      final Map<String, Map<String, dynamic>> remindersMap = {};
       
       for (var doc in snapshot.docs) {
         final data = doc.data();
         final id = doc.id;
+        remindersMap[id] = data;
         final brandName = (data['brandName'] as String? ?? '').trim().toLowerCase();
         activeIds.add(id);
         if (brandName.isNotEmpty) {
@@ -421,6 +428,8 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
           _activeReminderIds.addAll(activeIds);
           _activeReminderNames.clear();
           _activeReminderNames.addAll(activeNames);
+          _activeRemindersMap.clear();
+          _activeRemindersMap.addAll(remindersMap);
         });
       }
     });
@@ -703,24 +712,118 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
           // Sort documents by date string descending
           final docs = snapshot.data!.docs.toList()..sort((a, b) => b.id.compareTo(a.id));
 
-          return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final dateDoc = docs[index];
-              final dateStr = dateDoc.id; // e.g. "2026-08-30"
-              final data = dateDoc.data();
-              
-              final takenList = List<String>.from(data['taken'] ?? []);
-              final missedList = List<String>.from(data['missed'] ?? []);
+          // Filter documents based on Date Selection
+          final filteredDocs = docs.where((doc) {
+            final dateStr = doc.id;
+            final docDate = DateTime.tryParse(dateStr);
+            if (docDate == null) return false;
+            final cleanDoc = DateTime(docDate.year, docDate.month, docDate.day);
+            final cleanStart = DateTime(_startDate.year, _startDate.month, _startDate.day);
+            final cleanEnd = DateTime(_endDate.year, _endDate.month, _endDate.day);
+            return (cleanDoc.isAtSameMomentAs(cleanStart) || cleanDoc.isAfter(cleanStart)) &&
+                   (cleanDoc.isAtSameMomentAs(cleanEnd) || cleanDoc.isBefore(cleanEnd));
+          }).toList();
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ...takenList.map((medName) => _buildHistoryItem(medName, true, dateStr)),
-                  ...missedList.map((medName) => _buildHistoryItem(medName, false, dateStr)),
-                ],
-              );
-            },
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Premium Date Range Selection Card
+              Card(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.withOpacity(0.15)),
+                ),
+                child: InkWell(
+                  onTap: () async {
+                    final selectedRange = await showDateRangePicker(
+                      context: context,
+                      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+                      firstDate: DateTime.now().subtract(const Duration(days: 90)),
+                      lastDate: DateTime.now(),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: Theme.of(context).colorScheme.copyWith(
+                              primary: const Color(0xFF1E40AF),
+                              onPrimary: Colors.white,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (selectedRange != null) {
+                      setState(() {
+                        _startDate = selectedRange.start;
+                        _endDate = selectedRange.end;
+                      });
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E40AF).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.calendar_today, color: Color(0xFF1E40AF), size: 16),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Select Date Range', style: TextStyle(fontSize: 10, color: Color(0xFF1E40AF), fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text(
+                                "${_startDate.day}/${_startDate.month}/${_startDate.year} - ${_endDate.day}/${_endDate.month}/${_endDate.year}",
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (filteredDocs.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text('No log events in the selected date period.', style: TextStyle(color: Colors.grey)),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filteredDocs.length,
+                    itemBuilder: (context, index) {
+                      final dateDoc = filteredDocs[index];
+                      final dateStr = dateDoc.id; // e.g. "2026-08-30"
+                      final data = dateDoc.data();
+                      
+                      final takenList = List<String>.from(data['taken'] ?? []);
+                      final missedList = List<String>.from(data['missed'] ?? []);
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ...takenList.map((medName) => _buildHistoryItem(medName, true, dateStr)),
+                          ...missedList.map((medName) => _buildHistoryItem(medName, false, dateStr)),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+            ],
           );
         },
       );
@@ -805,6 +908,22 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
       return const SizedBox.shrink();
     }
 
+    // Try to find the reminder details from our active map
+    Map<String, dynamic>? activeRem = _activeRemindersMap[reminderId];
+    if (activeRem == null) {
+      // Fallback matching by brand name
+      for (var rem in _activeRemindersMap.values) {
+        if ((rem['brandName'] as String? ?? '').toLowerCase() == cleanName) {
+          activeRem = rem;
+          break;
+        }
+      }
+    }
+
+    final String timeStr = activeRem != null ? (activeRem['time'] ?? '08:00 AM') : '08:00 AM';
+    final String doseStr = activeRem != null ? (activeRem['dose'] ?? '1 Unit') : '1 Unit';
+    final String instructionStr = activeRem != null ? (activeRem['instructions'] ?? '') : '';
+
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
@@ -818,8 +937,8 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         ),
         subtitle: Text(
-          "Logged: $dateStr",
-          style: const TextStyle(fontSize: 11, color: Colors.grey),
+          "Logged: $dateStr • Time: $timeStr • Dose: $doseStr${instructionStr.isNotEmpty ? ' • Rule: $instructionStr' : ''}",
+          style: const TextStyle(fontSize: 11, color: Colors.grey, height: 1.4),
         ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
