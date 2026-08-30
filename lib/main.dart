@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+8";
+const String appVersion = "Beta v1.1.2+9";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -388,21 +388,19 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
   }
 
   void _loadStats() {
-    // Read adherence stats dynamically
+    // Read today's reminders dynamically to match the mobile app's score calculation exactly
     FirebaseFirestore.instance
         .collection('users')
         .doc(widget.patientId)
-        .collection('adherenceHistory')
+        .collection('reminders')
         .snapshots()
         .listen((snapshot) {
       int taken = 0;
       int missed = 0;
       for (var doc in snapshot.docs) {
         final data = doc.data();
-        final List takenList = data['taken'] ?? [];
-        final List missedList = data['missed'] ?? [];
-        taken += takenList.length;
-        missed += missedList.length;
+        if (data['taken'] == true) taken++;
+        if (data['missed'] == true) missed++;
       }
       if (mounted) {
         setState(() {
