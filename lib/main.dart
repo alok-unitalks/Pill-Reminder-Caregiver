@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -99,10 +100,19 @@ class CaregiverLoginScreen extends StatefulWidget {
 class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
+  final FocusNode _keyboardFocusNode = FocusNode();
   bool _isLoading = false;
   bool _otpSent = false;
   String? _patientUid;
   ConfirmationResult? _confirmationResult;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _otpController.dispose();
+    _keyboardFocusNode.dispose();
+    super.dispose();
+  }
 
   // Search caregiverPhone in Firestore, send SMS OTP
   void _requestOtp() async {
@@ -251,108 +261,125 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          Center(
-            child: Container(
-              width: 450,
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 15,
-                    spreadRadius: 2,
-                  )
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(Icons.healing, size: 64, color: Color(0xFF1E40AF)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Caregiver Verification Portal',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _otpSent
-                        ? 'Enter the 6-digit code sent to your registered phone number.'
-                        : 'Enter your registered phone number to verify identity and access the patient dashboard.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                  const SizedBox(height: 24),
-                  if (!_otpSent) ...[
-                    TextField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      onSubmitted: (_) => _requestOtp(),
-                      decoration: const InputDecoration(
-                        labelText: 'Phone Number',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.phone),
-                        prefixText: '+91 ',
-                      ),
-                    ),
-                  ] else ...[
-                    TextField(
-                      controller: _otpController,
-                      keyboardType: TextInputType.number,
-                      onSubmitted: (_) => _verifyOtp(),
-                      decoration: const InputDecoration(
-                        labelText: 'Verification Code',
-                        hintText: '123456',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.security),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                          onPressed: _otpSent ? _verifyOtp : _requestOtp,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: const Color(0xFF1E40AF),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Text(
-                            _otpSent ? 'Verify Code' : 'Send Verification Code',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                  if (_otpSent) ...[
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _otpSent = false;
-                          _otpController.clear();
-                        });
-                      },
-                      child: const Text('Back to phone entry', style: TextStyle(color: Color(0xFF1E40AF))),
+      body: KeyboardListener(
+        focusNode: _keyboardFocusNode,
+        autofocus: true,
+        onKeyEvent: (event) {
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+            if (!_isLoading) {
+              if (_otpSent) {
+                _verifyOtp();
+              } else {
+                _requestOtp();
+              }
+            }
+          }
+        },
+        child: Stack(
+          children: [
+            Center(
+              child: Container(
+                width: 450,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 15,
+                      spreadRadius: 2,
                     )
                   ],
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Version: $appVersion',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 11),
-                  ),
-                ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.healing, size: 64, color: Color(0xFF1E40AF)),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Caregiver Verification Portal',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _otpSent
+                          ? 'Enter the 6-digit code sent to your registered phone number.'
+                          : 'Enter your registered phone number to verify identity and access the patient dashboard.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                    const SizedBox(height: 24),
+                    if (!_otpSent) ...[
+                      TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.go,
+                        onSubmitted: (_) => _requestOtp(),
+                        decoration: const InputDecoration(
+                          labelText: 'Phone Number',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.phone),
+                          prefixText: '+91 ',
+                        ),
+                      ),
+                    ] else ...[
+                      TextField(
+                        controller: _otpController,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.go,
+                        onSubmitted: (_) => _verifyOtp(),
+                        decoration: const InputDecoration(
+                          labelText: 'Verification Code',
+                          hintText: '123456',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.security),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                            onPressed: _otpSent ? _verifyOtp : _requestOtp,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              backgroundColor: const Color(0xFF1E40AF),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              _otpSent ? 'Verify Code' : 'Send Verification Code',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                    if (_otpSent) ...[
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _otpSent = false;
+                            _otpController.clear();
+                          });
+                        },
+                        child: const Text('Back to phone entry', style: TextStyle(color: Color(0xFF1E40AF))),
+                      )
+                    ],
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Version: $appVersion',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontSize: 11),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
