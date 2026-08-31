@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+15";
+const String appVersion = "Beta v1.1.2+16";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -392,6 +392,9 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
   int _unreadAlertsCount = 0;
   final Set<String> _notifiedAlertIds = {};
 
+  // Mobile layout navigation index
+  int _mobileTabIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -523,7 +526,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: isActive ? Colors.black87 : Colors.grey[600],
                 ),
@@ -533,8 +536,8 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(10),
+                     color: Colors.red,
+                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '$badgeCount',
@@ -549,170 +552,280 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Caregiver Monitor | Patient: ${widget.patientId.substring(0, 6)}...'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              html.window.localStorage.remove('caregiver_patient_uid');
-              await FirebaseAuth.instance.signOut();
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const CaregiverLoginScreen()),
-              );
-            },
-          )
-        ],
+  Widget _buildAdherenceRateCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            const Text(
+              'Overall Adherence Rate',
+              style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '${_adherenceRate.toStringAsFixed(1)}%',
+              style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Column(
+                  children: [
+                    const Text('Doses Taken', style: TextStyle(color: Colors.grey)),
+                    Text('$_takenCount', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
+                  ],
+                ),
+                Column(
+                  children: [
+                    const Text('Doses Missed', style: TextStyle(color: Colors.grey)),
+                    Text('$_missedCount', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red)),
+                  ],
+                ),
+              ],
+            )
+          ],
+        ),
       ),
-      body: Row(
+    );
+  }
+
+  Widget _buildAnalyticsChartCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Adherence Analytics Chart',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 180,
+              child: PieChart(
+                PieChartData(
+                  sectionsSpace: 4,
+                  centerSpaceRadius: 40,
+                  sections: [
+                    PieChartSectionData(
+                      color: Colors.green,
+                      value: _takenCount.toDouble() == 0 ? 1 : _takenCount.toDouble(),
+                      title: 'Taken',
+                      radius: 60,
+                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    PieChartSectionData(
+                      color: Colors.red,
+                      value: _missedCount.toDouble() == 0 ? 1 : _missedCount.toDouble(),
+                      title: 'Missed',
+                      radius: 60,
+                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabSwitcherRow() {
+    return Container(
+      padding: const EdgeInsets.all(4.0),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
         children: [
-          // Left Sidebar Metrics / Graph
-          Expanded(
-            flex: 2,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Adherence Rate Card
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Overall Adherence Rate',
-                            style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            '${_adherenceRate.toStringAsFixed(1)}%',
-                            style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              Column(
-                                children: [
-                                  const Text('Doses Taken', style: TextStyle(color: Colors.grey)),
-                                  Text('$_takenCount', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  const Text('Doses Missed', style: TextStyle(color: Colors.grey)),
-                                  Text('$_missedCount', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red)),
-                                ],
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Progress Chart
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'Adherence Analytics Chart',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            height: 180,
-                            child: PieChart(
-                              PieChartData(
-                                sectionsSpace: 4,
-                                centerSpaceRadius: 40,
-                                sections: [
-                                  PieChartSectionData(
-                                    color: Colors.green,
-                                    value: _takenCount.toDouble() == 0 ? 1 : _takenCount.toDouble(),
-                                    title: 'Taken',
-                                    radius: 60,
-                                    titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                  ),
-                                  PieChartSectionData(
-                                    color: Colors.red,
-                                    value: _missedCount.toDouble() == 0 ? 1 : _missedCount.toDouble(),
-                                    title: 'Missed',
-                                    radius: 60,
-                                    titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Center(
-                    child: Text(
-                      'Version: $appVersion',
-                      style: TextStyle(color: Colors.grey, fontSize: 11),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Vertical divider
-          const VerticalDivider(width: 1),
-          // Right Sidebar Adherence Hub
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Tab switcher (similar to mobile app layout switcher)
-                  Container(
-                    padding: const EdgeInsets.all(4.0),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildTabButton("active-schedule", "Active Schedule", Icons.assignment_outlined),
-                        _buildTabButton("adherence-history", "Adherence Log", Icons.calendar_today_outlined),
-                        _buildTabButton("caregiver-alerts", "Caregiver Alerts", Icons.warning_amber_outlined, badgeCount: _unreadAlertsCount),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Dynamic Panel Rendering
-                  Expanded(
-                    child: _buildPanelContent(),
-                  )
-                ],
-              ),
-            ),
-          )
+          _buildTabButton("active-schedule", "Active Schedule", Icons.assignment_outlined),
+          _buildTabButton("adherence-history", "Adherence Log", Icons.calendar_today_outlined),
+          _buildTabButton("caregiver-alerts", "Caregiver Alerts", Icons.warning_amber_outlined, badgeCount: _unreadAlertsCount),
         ],
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width < 800;
+
+    if (isMobile) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Caregiver Monitor | Patient: ${widget.patientId.substring(0, 6)}...'),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () async {
+                html.window.localStorage.remove('caregiver_patient_uid');
+                await FirebaseAuth.instance.signOut();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CaregiverLoginScreen()),
+                );
+              },
+            )
+          ],
+        ),
+        body: _mobileTabIndex == 0
+            ? SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildAdherenceRateCard(),
+                    const SizedBox(height: 16),
+                    _buildAnalyticsChartCard(),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: Text(
+                        'Version: $appVersion',
+                        style: const TextStyle(color: Colors.grey, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildTabSwitcherRow(),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: _buildPanelContent(),
+                    ),
+                  ],
+                ),
+              ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _mobileTabIndex,
+          onTap: (index) => setState(() => _mobileTabIndex = index),
+          selectedItemColor: const Color(0xFF1E40AF),
+          items: [
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart),
+              label: 'Analytics',
+            ),
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  const Icon(Icons.medical_services),
+                  if (_unreadAlertsCount > 0)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 12,
+                          minHeight: 12,
+                        ),
+                        child: Text(
+                          '$_unreadAlertsCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              label: 'Patient Hub',
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Desktop Layout
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Caregiver Monitor | Patient: ${widget.patientId.substring(0, 6)}...'),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () async {
+                html.window.localStorage.remove('caregiver_patient_uid');
+                await FirebaseAuth.instance.signOut();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CaregiverLoginScreen()),
+                );
+              },
+            )
+          ],
+        ),
+        body: Row(
+          children: [
+            // Left Sidebar Metrics / Graph
+            Expanded(
+              flex: 2,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildAdherenceRateCard(),
+                    const SizedBox(height: 24),
+                    _buildAnalyticsChartCard(),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: Text(
+                        'Version: $appVersion',
+                        style: const TextStyle(color: Colors.grey, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Vertical divider
+            const VerticalDivider(width: 1),
+            // Right Sidebar Adherence Hub
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildTabSwitcherRow(),
+                    const SizedBox(height: 24),
+                    Expanded(
+                      child: _buildPanelContent(),
+                    )
+                  ],
+                ),
+              ),
+            )
+          ],
+        ),
+      );
+    }
   }
 
   Widget _buildPanelContent() {
