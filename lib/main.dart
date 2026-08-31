@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+18";
+const String appVersion = "Beta v1.1.2+19";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1148,13 +1148,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
 
     final String cleanName = displayMedName.trim().toLowerCase();
     
-    // Filter: Only display historical logs of reminders that are currently active
-    final bool isActive = _activeReminderIds.contains(reminderId) || 
-                         _activeReminderNames.contains(cleanName);
-                         
-    if (!isActive) {
-      return const SizedBox.shrink();
-    }
+
 
     // Try to find the reminder details from our active map
     Map<String, dynamic>? activeRem = _activeRemindersMap[reminderId];
