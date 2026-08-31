@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+14";
+const String appVersion = "Beta v1.1.2+15";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
