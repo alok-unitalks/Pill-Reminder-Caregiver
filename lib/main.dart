@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+13";
+const String appVersion = "Beta v1.1.2+14";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -388,10 +388,36 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 14));
   DateTime _endDate = DateTime.now();
 
+  // Alerts notification tracking
+  int _unreadAlertsCount = 0;
+  final Set<String> _notifiedAlertIds = {};
+
   @override
   void initState() {
     super.initState();
     _loadStats();
+    _requestNotificationPermission();
+  }
+
+  void _requestNotificationPermission() {
+    try {
+      if (html.Notification.permission != 'granted' && html.Notification.permission != 'denied') {
+        html.Notification.requestPermission();
+      }
+    } catch (_) {}
+  }
+
+  void _triggerBrowserNotification(String medicineName, String patientName) {
+    try {
+      if (html.Notification.permission == 'granted') {
+        html.Notification(
+          'Missed Dose Alert ⚠️',
+          body: 'Patient $patientName missed scheduled dose of $medicineName.',
+        );
+      }
+    } catch (e) {
+      debugPrint("Failed to show HTML5 notification: $e");
+    }
   }
 
   void _loadStats() {
@@ -433,6 +459,40 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
         });
       }
     });
+
+    // Read caregiver alerts to count unread items and fire browser alerts
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.patientId)
+        .collection('caregiverAlerts')
+        .snapshots()
+        .listen((snapshot) {
+      int unread = 0;
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final alertId = doc.id;
+        
+        if (data['read'] != true) {
+          unread++;
+        }
+        
+        if (!_notifiedAlertIds.contains(alertId)) {
+          _notifiedAlertIds.add(alertId);
+          final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+          if (timestamp != null && DateTime.now().difference(timestamp).inSeconds < 60) {
+            _triggerBrowserNotification(
+              data['medicineName'] ?? 'Medication',
+              data['patientName'] ?? 'Patient',
+            );
+          }
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _unreadAlertsCount = unread;
+        });
+      }
+    });
   }
 
   double get _adherenceRate {
@@ -441,7 +501,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     return (_takenCount / total) * 100;
   }
 
-  Widget _buildTabButton(String tabId, String label, IconData icon) {
+  Widget _buildTabButton(String tabId, String label, IconData icon, {int badgeCount = 0}) {
     final isActive = _activeTab == tabId;
     return Expanded(
       child: GestureDetector(
@@ -468,6 +528,20 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                   color: isActive ? Colors.black87 : Colors.grey[600],
                 ),
               ),
+              if (badgeCount > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$badgeCount',
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -622,7 +696,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                       children: [
                         _buildTabButton("active-schedule", "Active Schedule", Icons.assignment_outlined),
                         _buildTabButton("adherence-history", "Adherence Log", Icons.calendar_today_outlined),
-                        _buildTabButton("caregiver-alerts", "Caregiver Alerts", Icons.warning_amber_outlined),
+                        _buildTabButton("caregiver-alerts", "Caregiver Alerts", Icons.warning_amber_outlined, badgeCount: _unreadAlertsCount),
                       ],
                     ),
                   ),
@@ -852,7 +926,11 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
           return ListView.builder(
             itemCount: docs.length,
             itemBuilder: (context, index) {
-              final alert = docs[index].data();
+              final doc = docs[index];
+              final alertId = doc.id;
+              final alert = doc.data();
+              final bool isRead = alert['read'] == true;
+              
               final time = (alert['timestamp'] as Timestamp?)?.toDate();
               final formattedTime = time != null
                   ? "${time.day}/${time.month} ${time.hour}:${time.minute.toString().padLeft(2, '0')}"
@@ -861,20 +939,52 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                color: const Color(0xFFFEF2F2),
+                color: isRead ? Colors.white : const Color(0xFFFEF2F2),
                 child: ListTile(
-                  leading: const Icon(Icons.warning, color: Colors.red),
+                  leading: Icon(
+                    isRead ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+                    color: isRead ? Colors.grey : Colors.red,
+                  ),
                   title: Text(
                     'Missed ${alert['medicineName']}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isRead ? Colors.grey[700] : Colors.red,
+                    ),
                   ),
                   subtitle: Text(
-                    'Patient: ${alert['patientName']} | Scheduled: ${alert['doseTiming']}',
-                    style: TextStyle(color: Colors.grey[700]),
+                    'Patient: ${alert['patientName']} | Scheduled: ${alert['doseTiming']} | $formattedTime',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   ),
-                  trailing: Text(
-                    formattedTime,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!isRead)
+                        IconButton(
+                          icon: const Icon(Icons.done, color: Color(0xFF1E40AF), size: 20),
+                          tooltip: 'Mark as read',
+                          onPressed: () {
+                            FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(widget.patientId)
+                                .collection('caregiverAlerts')
+                                .doc(alertId)
+                                .update({'read': true});
+                          },
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                        tooltip: 'Remove alert',
+                        onPressed: () {
+                          FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(widget.patientId)
+                              .collection('caregiverAlerts')
+                              .doc(alertId)
+                              .delete();
+                        },
+                      ),
+                    ],
                   ),
                 ),
               );
