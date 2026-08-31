@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+17";
+const String appVersion = "Beta v1.1.2+18";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -504,6 +504,11 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     return (_takenCount / total) * 100;
   }
 
+  Future<void> _handleRefresh() async {
+    _loadStats();
+    await Future.delayed(const Duration(milliseconds: 800));
+  }
+
   Widget _buildTabButton(String tabId, String label, IconData icon, {int badgeCount = 0}) {
     final isActive = _activeTab == tabId;
     return Expanded(
@@ -681,22 +686,26 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
           ],
         ),
         body: _mobileTabIndex == 0
-            ? SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildAdherenceRateCard(),
-                    const SizedBox(height: 16),
-                    _buildAnalyticsChartCard(),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: Text(
-                        'Version: $appVersion',
-                        style: const TextStyle(color: Colors.grey, fontSize: 11),
+            ? RefreshIndicator(
+                onRefresh: _handleRefresh,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildAdherenceRateCard(),
+                      const SizedBox(height: 16),
+                      _buildAnalyticsChartCard(),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: Text(
+                          'Version: $appVersion',
+                          style: const TextStyle(color: Colors.grey, fontSize: 11),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               )
             : Padding(
@@ -784,22 +793,26 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
             // Left Sidebar Metrics / Graph
             Expanded(
               flex: 2,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildAdherenceRateCard(),
-                    const SizedBox(height: 24),
-                    _buildAnalyticsChartCard(),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: Text(
-                        'Version: $appVersion',
-                        style: const TextStyle(color: Colors.grey, fontSize: 11),
+              child: RefreshIndicator(
+                onRefresh: _handleRefresh,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildAdherenceRateCard(),
+                      const SizedBox(height: 24),
+                      _buildAnalyticsChartCard(),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: Text(
+                          'Version: $appVersion',
+                          style: const TextStyle(color: Colors.grey, fontSize: 11),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -848,34 +861,38 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
 
           final docs = snapshot.data!.docs;
 
-          return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final rem = docs[index].data();
-              return Card(
-                elevation: 1,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: Colors.grey.withOpacity(0.15)),
-                ),
-                child: ListTile(
-                  leading: PillPreviewWidget(
-                    shape: rem['shape'] ?? 'round',
-                    hexColor: rem['color'] ?? '#1E40AF',
-                    size: 20,
+          return RefreshIndicator(
+            onRefresh: _handleRefresh,
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: docs.length,
+              itemBuilder: (context, index) {
+                final rem = docs[index].data();
+                return Card(
+                  elevation: 1,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(color: Colors.grey.withOpacity(0.15)),
                   ),
-                  title: Text(
-                    rem['brandName'] ?? 'Medication',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  child: ListTile(
+                    leading: PillPreviewWidget(
+                      shape: rem['shape'] ?? 'round',
+                      hexColor: rem['color'] ?? '#1E40AF',
+                      size: 20,
+                    ),
+                    title: Text(
+                      rem['brandName'] ?? 'Medication',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      "Instruction: ${rem['instructions'] ?? 'As directed'} • ${rem['time'] ?? '08:00 AM'} • Dosage: ${rem['dose'] ?? '1 Unit'}",
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12, height: 1.4),
+                    ),
                   ),
-                  subtitle: Text(
-                    "Instruction: ${rem['instructions'] ?? 'As directed'} • ${rem['time'] ?? '08:00 AM'} • Dosage: ${rem['dose'] ?? '1 Unit'}",
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12, height: 1.4),
-                  ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
       );
@@ -990,24 +1007,28 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                 )
               else
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: filteredDocs.length,
-                    itemBuilder: (context, index) {
-                      final dateDoc = filteredDocs[index];
-                      final dateStr = dateDoc.id; // e.g. "2026-08-30"
-                      final data = dateDoc.data();
-                      
-                      final takenList = List<String>.from(data['taken'] ?? []);
-                      final missedList = List<String>.from(data['missed'] ?? []);
+                  child: RefreshIndicator(
+                    onRefresh: _handleRefresh,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: filteredDocs.length,
+                      itemBuilder: (context, index) {
+                        final dateDoc = filteredDocs[index];
+                        final dateStr = dateDoc.id; // e.g. "2026-08-30"
+                        final data = dateDoc.data();
+                        
+                        final takenList = List<String>.from(data['taken'] ?? []);
+                        final missedList = List<String>.from(data['missed'] ?? []);
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ...takenList.map((medName) => _buildHistoryItem(medName, true, dateStr)),
-                          ...missedList.map((medName) => _buildHistoryItem(medName, false, dateStr)),
-                        ],
-                      );
-                    },
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ...takenList.map((medName) => _buildHistoryItem(medName, true, dateStr)),
+                            ...missedList.map((medName) => _buildHistoryItem(medName, false, dateStr)),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
             ],
@@ -1036,72 +1057,76 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
 
           final docs = snapshot.data!.docs;
 
-          return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final doc = docs[index];
-              final alertId = doc.id;
-              final alert = doc.data();
-              final bool isRead = alert['read'] == true;
-              
-              final time = (alert['timestamp'] as Timestamp?)?.toDate();
-              final formattedTime = time != null
-                  ? "${time.day}/${time.month} ${time.hour}:${time.minute.toString().padLeft(2, '0')}"
-                  : "Just now";
+          return RefreshIndicator(
+            onRefresh: _handleRefresh,
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: docs.length,
+              itemBuilder: (context, index) {
+                final doc = docs[index];
+                final alertId = doc.id;
+                final alert = doc.data();
+                final bool isRead = alert['read'] == true;
+                
+                final time = (alert['timestamp'] as Timestamp?)?.toDate();
+                final formattedTime = time != null
+                    ? "${time.day}/${time.month} ${time.hour}:${time.minute.toString().padLeft(2, '0')}"
+                    : "Just now";
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                color: isRead ? Colors.white : const Color(0xFFFEF2F2),
-                child: ListTile(
-                  leading: Icon(
-                    isRead ? Icons.check_circle_outline : Icons.warning_amber_outlined,
-                    color: isRead ? Colors.grey : Colors.red,
-                  ),
-                  title: Text(
-                    'Missed ${alert['medicineName']}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isRead ? Colors.grey[700] : Colors.red,
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  color: isRead ? Colors.white : const Color(0xFFFEF2F2),
+                  child: ListTile(
+                    leading: Icon(
+                      isRead ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+                      color: isRead ? Colors.grey : Colors.red,
                     ),
-                  ),
-                  subtitle: Text(
-                    'Patient: ${alert['patientName']} | Scheduled: ${alert['doseTiming']} | $formattedTime',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!isRead)
+                    title: Text(
+                      'Missed ${alert['medicineName']}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isRead ? Colors.grey[700] : Colors.red,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Patient: ${alert['patientName']} | Scheduled: ${alert['doseTiming']} | $formattedTime',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!isRead)
+                          IconButton(
+                            icon: const Icon(Icons.done, color: Color(0xFF1E40AF), size: 20),
+                            tooltip: 'Mark as read',
+                            onPressed: () {
+                              FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(widget.patientId)
+                                  .collection('caregiverAlerts')
+                                  .doc(alertId)
+                                  .update({'read': true});
+                            },
+                          ),
                         IconButton(
-                          icon: const Icon(Icons.done, color: Color(0xFF1E40AF), size: 20),
-                          tooltip: 'Mark as read',
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                          tooltip: 'Remove alert',
                           onPressed: () {
                             FirebaseFirestore.instance
                                 .collection('users')
                                 .doc(widget.patientId)
                                 .collection('caregiverAlerts')
                                 .doc(alertId)
-                                .update({'read': true});
+                                .delete();
                           },
                         ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                        tooltip: 'Remove alert',
-                        onPressed: () {
-                          FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(widget.patientId)
-                              .collection('caregiverAlerts')
-                              .doc(alertId)
-                              .delete();
-                        },
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
       );
