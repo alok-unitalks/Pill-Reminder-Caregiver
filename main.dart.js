@@ -91081,12 +91081,12 @@ MA(){var s,r=null,q=A.eI(12),p=this.d
 p=A.aB7(r,r,r,B.v_,r,60,r,"Taken",r,B.lI,p===0?1:p)
 s=this.e
 return A.yU(new A.bQ(B.hg,A.dz(A.c([B.VQ,B.fq,A.f0(new A.C5(A.aGU(r,r,40,r,A.c([p,A.aB7(r,r,r,B.dA,r,60,r,"Missed",r,B.lI,s===0?1:s)],t.Mr),4,r),B.a1,B.cD,r,r),180,r)],t.p),B.aZ,B.F,B.S),r),r,2,r,new A.cx(q,B.q))},
-MJ(){var s=this,r=null,q=A.eI(10)
-return A.eJ(r,A.fQ(A.c([s.MH("active-schedule","Active Schedule",B.GH),s.MH("adherence-history","Adherence Log",B.GI),s.MI("caregiver-alerts","Caregiver Alerts",B.ou,s.Q)],t.p),B.X,B.F,B.S,0),B.t,r,r,new A.dc(B.ne,r,r,q,r,r,B.aE),r,r,r,B.nR,r,r,r)},
-I(a){var s,r,q,p=this,o=null,n="Caregiver Monitor | Patient: ",m="Version: Beta v1.1.2+16",l=A.ba(a,o,t.w).w,k=t.p,j=p.a
+MJ(a){var s=this,r=null,q=A.eI(10),p=s.MH("active-schedule",a?"Schedule":"Active Schedule",B.GH),o=s.MH("adherence-history",a?"Log":"Adherence Log",B.GI),n=a?"Alerts":"Caregiver Alerts"
+return A.eJ(r,A.fQ(A.c([p,o,s.MI("caregiver-alerts",n,B.ou,s.Q)],t.p),B.X,B.F,B.S,0),B.t,r,r,new A.dc(B.ne,r,r,q,r,r,B.aE),r,r,r,B.nR,r,r,r)},
+I(a){var s,r,q,p=this,o=null,n="Caregiver Monitor | Patient: ",m="Version: Beta v1.1.2+17",l=A.ba(a,o,t.w).w,k=t.p,j=p.a
 if(l.a.a<800){l=A.bK(n+B.d.ap(j.c,0,6)+"...",o,o,o,o,o,o,o)
 l=A.azK(A.c([A.qi(o,o,B.ox,o,o,new A.aoU(a),o,o,o)],k),o,B.k,o,0,B.l,o,o,o,l)
-j=p.at===0?A.aHH(A.dz(A.c([p.Mz(),B.bk,p.MA(),B.bk,A.iq(A.bK(m,o,o,o,B.lJ,o,o,o),o,o)],k),B.aZ,B.F,B.S),B.nQ):new A.bQ(B.nQ,A.dz(A.c([p.MJ(),B.bk,A.fc(p.MF(),1)],k),B.aZ,B.F,B.S),o)
+j=p.at===0?A.aHH(A.dz(A.c([p.Mz(),B.bk,p.MA(),B.bk,A.iq(A.bK(m,o,o,o,B.lJ,o,o,o),o,o)],k),B.aZ,B.F,B.S),B.nQ):new A.bQ(B.nQ,A.dz(A.c([p.MJ(!0),B.bk,A.fc(p.MF(),1)],k),B.aZ,B.F,B.S),o)
 s=p.at
 k=A.c([B.GR],k)
 r=p.Q
@@ -91094,7 +91094,7 @@ if(r>0){q=A.eI(6)
 k.push(A.afD(o,A.eJ(o,A.bK(""+r,o,o,o,B.TU,B.c7,o,o),B.t,o,B.BP,new A.dc(B.dA,o,o,q,o,o,B.aE),o,o,o,B.G3,o,o,o),o,o,o,0,0,o))}k=A.om(B.cc,k,B.K,B.cl)
 k=A.c([B.BG,new A.yJ(k,k,"Patient Hub")],t.ur)
 return A.ahR(l,o,j,new A.yI(k,new A.aoV(p),s,B.aP,o))}else{l=A.bK(n+B.d.ap(j.c,0,6)+"...",o,o,o,o,o,o,o)
-return A.ahR(A.azK(A.c([A.qi(o,o,B.ox,o,o,new A.aoW(a),o,o,o)],k),o,B.k,o,0,B.l,o,o,o,l),o,A.fQ(A.c([A.fc(A.aHH(A.dz(A.c([p.Mz(),B.fq,p.MA(),B.bk,A.iq(A.bK(m,o,o,o,B.lJ,o,o,o),o,o)],k),B.aZ,B.F,B.S),B.hg),2),B.Xt,A.fc(new A.bQ(B.hg,A.dz(A.c([p.MJ(),B.fq,A.fc(p.MF(),1)],k),B.aZ,B.F,B.S),o),3)],k),B.X,B.F,B.S,0),o)}},
+return A.ahR(A.azK(A.c([A.qi(o,o,B.ox,o,o,new A.aoW(a),o,o,o)],k),o,B.k,o,0,B.l,o,o,o,l),o,A.fQ(A.c([A.fc(A.aHH(A.dz(A.c([p.Mz(),B.fq,p.MA(),B.bk,A.iq(A.bK(m,o,o,o,B.lJ,o,o,o),o,o)],k),B.aZ,B.F,B.S),B.hg),2),B.Xt,A.fc(new A.bQ(B.hg,A.dz(A.c([p.MJ(!1),B.fq,A.fc(p.MF(),1)],k),B.aZ,B.F,B.S),o),3)],k),B.X,B.F,B.S,0),o)}},
 MF(){var s,r,q,p=this,o="[DEFAULT]",n="users",m=p.f
 if(m==="active-schedule"){m=$.bA
 s=(m==null?$.bA=$.db():m).dc(o)
@@ -97490,7 +97490,7 @@ B.RC=new A.n(!0,B.l,null,".AppleSystemUIFont",null,null,null,null,null,null,null
 B.VK=new A.e2(B.Ts,B.Sn,B.Tt,B.TZ,B.S1,B.S9,B.SI,B.TR,B.SU,B.Uk,B.Rv,B.RO,B.Uh,B.UE,B.RC)
 B.TG=new A.n(!0,null,null,null,null,null,22,B.ar,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.VL=new A.ej("Caregiver Verification Portal",null,B.TG,B.c7,null,null,null,null,null,null)
-B.VN=new A.ej("Version: Beta v1.1.2+16",null,B.lJ,B.c7,null,null,null,null,null,null)
+B.VN=new A.ej("Version: Beta v1.1.2+17",null,B.lJ,B.c7,null,null,null,null,null,null)
 B.UC=new A.n(!0,null,null,null,null,null,16,B.ar,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.VQ=new A.ej("Adherence Analytics Chart",null,B.UC,null,null,null,null,null,null,null)
 B.VR=new A.ej("Doses Taken",null,B.lK,null,null,null,null,null,null,null)

@@ -10,7 +10,7 @@ import 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart'; // Keep for fallback compilation safety if needed, but we use dart:html
 import 'firebase_options.dart';
 
-const String appVersion = "Beta v1.1.2+16";
+const String appVersion = "Beta v1.1.2+17";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -638,7 +638,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     );
   }
 
-  Widget _buildTabSwitcherRow() {
+  Widget _buildTabSwitcherRow(bool isMobile) {
     return Container(
       padding: const EdgeInsets.all(4.0),
       decoration: BoxDecoration(
@@ -647,9 +647,9 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
       ),
       child: Row(
         children: [
-          _buildTabButton("active-schedule", "Active Schedule", Icons.assignment_outlined),
-          _buildTabButton("adherence-history", "Adherence Log", Icons.calendar_today_outlined),
-          _buildTabButton("caregiver-alerts", "Caregiver Alerts", Icons.warning_amber_outlined, badgeCount: _unreadAlertsCount),
+          _buildTabButton("active-schedule", isMobile ? "Schedule" : "Active Schedule", Icons.assignment_outlined),
+          _buildTabButton("adherence-history", isMobile ? "Log" : "Adherence Log", Icons.calendar_today_outlined),
+          _buildTabButton("caregiver-alerts", isMobile ? "Alerts" : "Caregiver Alerts", Icons.warning_amber_outlined, badgeCount: _unreadAlertsCount),
         ],
       ),
     );
@@ -704,7 +704,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildTabSwitcherRow(),
+                    _buildTabSwitcherRow(true),
                     const SizedBox(height: 16),
                     Expanded(
                       child: _buildPanelContent(),
@@ -813,7 +813,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildTabSwitcherRow(),
+                    _buildTabSwitcherRow(false),
                     const SizedBox(height: 24),
                     Expanded(
                       child: _buildPanelContent(),
